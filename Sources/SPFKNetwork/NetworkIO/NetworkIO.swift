@@ -1,6 +1,23 @@
 import Foundation
 import SPFKBase
 
+// MARK: - NetworkIOError
+
+/// Errors thrown by `NetworkIO` functions.
+public enum NetworkIOError: LocalizedError, Sendable {
+    /// The server responded with a non-2xx HTTP status code.
+    case httpError(statusCode: Int)
+
+    public var errorDescription: String? {
+        switch self {
+        case .httpError(let code):
+            return "The server returned an error (HTTP \(code))."
+        }
+    }
+}
+
+// MARK: - NetworkIO
+
 /// Lightweight namespace for common HTTP operations using `URLSession.shared`.
 ///
 /// All functions load the full response into memory. Use `BufferedDownloader`
@@ -11,7 +28,7 @@ public enum NetworkIO {
     /// - Parameters:
     ///   - remoteURL: The remote resource to fetch.
     ///   - localURL: The local file path to write the response body to.
-    /// - Throws: A `URLError` or file-write error on failure.
+    /// - Throws: A `NetworkIOError`, `URLError`, or file-write error on failure.
     public static func download(from remoteURL: URL, to localURL: URL) async throws {
         let data = try await data(from: remoteURL)
         try data.write(to: localURL)
@@ -21,19 +38,24 @@ public enum NetworkIO {
     ///
     /// - Parameter url: The URL to fetch.
     /// - Returns: The raw response body.
-    /// - Throws: A `URLError` on failure.
+    /// - Throws: A `NetworkIOError` or `URLError` on failure.
     public static func data(from url: URL) async throws -> Data {
-        let (data, _) = try await URLSession.shared.data(from: url)
-        return data
+        let request = createRequest(from: url, httpMethod: .get, accept: nil)
+        return try await data(for: request)
     }
 
     /// Fetches the response body for `request` as `Data`.
     ///
+    /// Throws `NetworkIOError.httpError` if the server returns a non-2xx status code.
+    ///
     /// - Parameter request: The `URLRequest` to perform.
     /// - Returns: The raw response body.
-    /// - Throws: A `URLError` on failure.
+    /// - Throws: A `NetworkIOError` or `URLError` on failure.
     public static func data(for request: URLRequest) async throws -> Data {
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
+            throw NetworkIOError.httpError(statusCode: http.statusCode)
+        }
         return data
     }
 }
@@ -46,7 +68,8 @@ extension NetworkIO {
     ///   - url: The target URL.
     ///   - accept: Optional `Accept` header value. Pass `nil` to omit the header.
     /// - Returns: The raw response body.
-    /// - Throws: A `URLError` on failure.
+    /// - Throws: A `NetworkIOError` or `URLError` on failure.
+    @discardableResult
     public static func put(
         data: Data,
         url: URL,
@@ -66,7 +89,8 @@ extension NetworkIO {
     ///   - accessToken: Optional Bearer token added to the `Authorization` header.
     ///   - accept: `Accept` header value. Defaults to `.json`.
     /// - Returns: The raw response body.
-    /// - Throws: A `URLError` on failure.
+    /// - Throws: A `NetworkIOError` or `URLError` on failure.
+    @discardableResult
     public static func post(
         query: [URLQueryItem],
         to url: URL,
@@ -94,7 +118,8 @@ extension NetworkIO {
     ///   - accept: `Accept` header value. Defaults to `.json`.
     ///   - json: The JSON-encoded request body.
     /// - Returns: The raw response body.
-    /// - Throws: A `URLError` on failure.
+    /// - Throws: A `NetworkIOError` or `URLError` on failure.
+    @discardableResult
     public static func post(
         to url: URL,
         accessToken: String? = nil,
@@ -113,6 +138,32 @@ extension NetworkIO {
         return try await NetworkIO.data(for: request)
     }
 
+    /// Encodes `encodable` as JSON and sends it as the body of a POST request.
+    ///
+    /// Sets `Content-Type: application/json`.
+    ///
+    /// - Parameters:
+    ///   - url: The target URL.
+    ///   - accessToken: Optional Bearer token added to the `Authorization` header.
+    ///   - accept: `Accept` header value. Defaults to `.json`.
+    ///   - encodable: The value to encode as JSON.
+    ///   - keyEncodingStrategy: Key encoding strategy for the JSON encoder. Defaults to `.useDefaultKeys`.
+    /// - Returns: The raw response body.
+    /// - Throws: A `NetworkIOError`, encoding error, or `URLError` on failure.
+    @discardableResult
+    public static func post<T: Encodable & Sendable>(
+        to url: URL,
+        accessToken: String? = nil,
+        accept: Accept = .json,
+        encodable: T,
+        keyEncodingStrategy: JSONEncoder.KeyEncodingStrategy = .useDefaultKeys
+    ) async throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = keyEncodingStrategy
+        let json = try encoder.encode(encodable)
+        return try await post(to: url, accessToken: accessToken, accept: accept, json: json)
+    }
+
     /// Fetches data from `url` using the specified HTTP method and optional Bearer token.
     ///
     /// - Parameters:
@@ -121,7 +172,8 @@ extension NetworkIO {
     ///   - httpMethod: The HTTP method to use. Defaults to `.get`.
     ///   - accept: `Accept` header value. Defaults to `.json`.
     /// - Returns: The raw response body.
-    /// - Throws: A `URLError` on failure.
+    /// - Throws: A `NetworkIOError` or `URLError` on failure.
+    @discardableResult
     public static func data(
         from url: URL,
         accessToken: String?,
