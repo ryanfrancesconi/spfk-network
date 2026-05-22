@@ -14,7 +14,7 @@ final class NetworkIOLiveTests: BinTestCase, @unchecked Sendable {
     /// Known-good test fixture hosted at a stable URL.
     /// Content: "SPFKNetwork test file\n" (22 bytes, UTF-8)
     /// Locally at: SPFKNetworkTests/spfk-network-test-file.txt
-    private static let testFileURL = URL(string: "http://spongefork.com/dev/spfk-network-test-file.txt")!
+    private static let testFileURL = URL(string: "https://spongefork.com/dev/spfk-network-test-file.txt")!
     private static let testFileContent = Data("SPFKNetwork test file\n".utf8)
 
     override init() async {
