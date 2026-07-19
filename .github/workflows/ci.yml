@@ -8,4 +8,4 @@ on:
 
 jobs:
   build-and-test:
-    uses: ryanfrancesconi/spfk-packages/.github/workflows/swift-package-ci.yml@development
+    uses: ryanfrancesconi/spfk-ci/.github/workflows/swift-package-ci.yml@main
