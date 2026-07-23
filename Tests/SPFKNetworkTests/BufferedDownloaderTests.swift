@@ -16,7 +16,7 @@ final class DownloadEventLog: @unchecked Sendable {
     var fractions: [Double] = []
 }
 
-@Suite(.serialized, .tags(.file))
+@Suite(.tags(.file))
 final class BufferedDownloaderTests: BinTestCase, @unchecked Sendable {
     override init() async {
         await super.init()

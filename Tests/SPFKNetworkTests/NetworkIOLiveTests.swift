@@ -9,7 +9,7 @@ import Testing
 @testable import SPFKNetwork
 
 // Requires network access. Run manually; not suitable for offline CI.
-@Suite(.serialized, .tags(.file))
+@Suite(.tags(.file))
 final class NetworkIOLiveTests: BinTestCase, @unchecked Sendable {
     /// Known-good test fixture hosted at a stable URL.
     /// Content: "SPFKNetwork test file\n" (22 bytes, UTF-8)
