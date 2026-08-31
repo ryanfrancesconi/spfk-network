@@ -14,47 +14,15 @@ Lightweight networking utilities for macOS and iOS built on `URLSession` and Swi
 
 ### NetworkIO
 
-A static namespace for common HTTP operations. All functions load the full response body into memory — use `BufferedDownloader` for large files.
-
-```swift
-// Fetch raw data
-let data = try await NetworkIO.data(from: url)
-
-// Download to a local file
-try await NetworkIO.download(from: remoteURL, to: localURL)
-
-// POST with a JSON body
-let response = try await NetworkIO.post(to: url, accessToken: token, json: encodedData)
-
-// POST with URL-encoded form fields
-let response = try await NetworkIO.post(query: [URLQueryItem(name: "key", value: "val")], to: url)
-
-// Build a URLRequest manually
-let request = NetworkIO.createRequest(from: url, httpMethod: .get, accessToken: token, accept: .json)
-```
+A static namespace for common HTTP operations — GET, POST, HEAD, reachability, and decoding a
+response body. All of them load the full body into memory; use `BufferedDownloader` for large
+files. Failures arrive as `NetworkIOError`.
 
 ### BufferedDownloader
 
-An `actor` that streams a remote URL to a local file with per-flush progress events. Suitable for large files where memory efficiency and progress reporting matter.
-
-```swift
-let downloader = BufferedDownloader()
-
-let localURL = try await downloader.download(
-    name: "My File",
-    from: remoteURL,
-    to: destinationURL
-) { event in
-    switch event {
-    case .start(let progress): print("Starting:", progress.statusString)
-    case .progress(let progress): print("Progress:", progress.fractionCompleted)
-    case .complete(let progress): print("Done")
-    }
-}
-
-// Cancel an in-flight download
-await downloader.cancel()
-```
+An actor that streams a remote URL to a local file with per-flush progress events, identified by a
+`ProgressIdentifier`. Suitable for large files where memory efficiency and progress reporting
+matter.
 
 Progress fraction is computed from the server's `Content-Length` when available. For responses without `Content-Length`, the denominator is kept ahead of bytes received so the fraction approaches but never falsely reaches 1.0 mid-stream.
 
