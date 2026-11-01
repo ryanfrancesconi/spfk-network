@@ -3,34 +3,16 @@
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-network%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/ryanfrancesconi/spfk-network)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-network%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/ryanfrancesconi/spfk-network)
 
-Lightweight networking utilities for macOS and iOS built on `URLSession` and Swift concurrency.
+Support for the few places the products touch the network: fetching a resource, sending a small
+request, and downloading a large file to disk with progress. Built on `URLSession` and Swift
+concurrency, with no state of its own.
 
-## Requirements
+`NetworkIO` loads a whole response into memory and treats a non-2xx status as an error.
+`BufferedDownloader` streams to a file, reports progress as it goes, and deletes the partial file
+when the download fails or is cancelled. Use the downloader for anything large. Without a
+`Content-Length`, its progress approaches completion but never reports it before the stream ends.
 
-- **Platforms:** macOS 13+, iOS 16+
-- **Swift:** 6.2+
-
-## Overview
-
-### NetworkIO
-
-A static namespace for common HTTP operations — GET, POST, HEAD, reachability, and decoding a
-response body. All of them load the full body into memory; use `BufferedDownloader` for large
-files. Failures arrive as `NetworkIOError`.
-
-### BufferedDownloader
-
-An actor that streams a remote URL to a local file with per-flush progress events, identified by a
-`ProgressIdentifier`. Suitable for large files where memory efficiency and progress reporting
-matter.
-
-Progress fraction is computed from the server's `Content-Length` when available. For responses without `Content-Length`, the denominator is kept ahead of bytes received so the fraction approaches but never falsely reaches 1.0 mid-stream.
-
-## Dependencies
-
-| Package | Description |
-|---|---|
-| [spfk-utils](https://github.com/ryanfrancesconi/spfk-utils) | Filesystem helpers and Foundation extensions |
+What is fetched, and why, belongs to the caller.
 
 ## About
 
