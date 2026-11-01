@@ -51,7 +51,8 @@ public actor BufferedDownloader {
     ///   - fileURL: The local destination path.
     ///   - onEvent: Called on `.start`, `.progress`, and `.complete` events.
     /// - Returns: `fileURL` on success.
-    /// - Throws: `CancellationError` if cancelled, or a network/write error on failure.
+    /// - Throws: `CancellationError` if cancelled, `NetworkIOError.httpError` for a non-2xx HTTP
+    ///           status, or a network/write error on failure.
     ///           Any partial file at `fileURL` is deleted on failure.
     public func download(
         name: String? = nil,
@@ -94,6 +95,11 @@ public actor BufferedDownloader {
         onEvent: (@Sendable (Event) -> Void)?
     ) async throws -> URL {
         let (asyncBytes, response) = try await URLSession.shared.bytes(for: URLRequest(url: remoteURL))
+
+        if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
+            throw NetworkIOError.httpError(statusCode: http.statusCode)
+        }
+
         let expectedLength = response.expectedContentLength
 
         let statusIdentifier = "\(name)_\(Entropy.uniqueId)"

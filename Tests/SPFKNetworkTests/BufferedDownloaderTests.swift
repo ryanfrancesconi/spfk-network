@@ -160,3 +160,73 @@ final class BufferedDownloaderTests: BinTestCase, @unchecked Sendable {
         }
     }
 }
+
+// MARK: - HTTP status
+
+/// Answers requests to `host` with the HTTP status named by the URL's last path component.
+final class HTTPStubProtocol: URLProtocol {
+    static let host = "buffered-downloader.stub.test"
+    static let body = Data("stub body".utf8)
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        request.url?.host == host
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url,
+              let status = Int(url.lastPathComponent),
+              let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil)
+        else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+@Suite(.serialized, .tags(.file))
+final class BufferedDownloaderHTTPStatusTests: BinTestCase, @unchecked Sendable {
+    override init() async {
+        await super.init()
+        URLProtocol.registerClass(HTTPStubProtocol.self)
+    }
+
+    deinit {
+        URLProtocol.unregisterClass(HTTPStubProtocol.self)
+    }
+
+    private func stubURL(status: Int) throws -> URL {
+        try #require(URL(string: "https://\(HTTPStubProtocol.host)/\(status)"))
+    }
+
+    @Test func successStatusWritesBody() async throws {
+        let destURL = bin.appendingPathComponent("dest_200.txt")
+
+        _ = try await BufferedDownloader().download(from: stubURL(status: 200), to: destURL)
+
+        #expect(try Data(contentsOf: destURL) == HTTPStubProtocol.body)
+    }
+
+    @Test func errorStatusThrowsAndLeavesNoFile() async throws {
+        let destURL = bin.appendingPathComponent("dest_404.txt")
+
+        let error = await #expect(throws: NetworkIOError.self) {
+            try await BufferedDownloader().download(from: self.stubURL(status: 404), to: destURL)
+        }
+
+        guard case .httpError(let statusCode) = error else {
+            Issue.record("Expected httpError, got \(String(describing: error))")
+            return
+        }
+        #expect(statusCode == 404)
+
+        #expect(!destURL.exists)
+    }
+}
