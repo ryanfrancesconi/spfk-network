@@ -1,18 +1,16 @@
 # SPFKNetwork
 [![Version](https://img.shields.io/github/v/tag/ryanfrancesconi/spfk-network)](https://github.com/ryanfrancesconi/spfk-network/tags)
-[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-network%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/ryanfrancesconi/spfk-network)
-[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-network%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/ryanfrancesconi/spfk-network)
+[![Swift](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-network%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/ryanfrancesconi/spfk-network)
+[![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-network%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/ryanfrancesconi/spfk-network)
 
-Support for the few places the products touch the network: fetching a resource, sending a small
-request, and downloading a large file to disk with progress. Built on `URLSession` and Swift
-concurrency, with no state of its own.
+Small networking helpers built on `URLSession` and Swift concurrency.
 
-`NetworkIO` loads a whole response into memory and treats a non-2xx status as an error.
-`BufferedDownloader` streams to a file, reports progress as it goes, and deletes the partial file
-when the download fails or is cancelled. Use the downloader for anything large. Without a
-`Content-Length`, its progress approaches completion but never reports it before the stream ends.
+## Features
 
-What is fetched, and why, belongs to the caller.
+- `NetworkIO` fetches data, sends requests, and treats a non-2xx status as an error
+- `BufferedDownloader` streams a download to a file with progress events, and deletes the partial
+  file if the download fails
+- Without a `Content-Length`, download progress does not reach completion until the stream ends
 
 ## About
 
