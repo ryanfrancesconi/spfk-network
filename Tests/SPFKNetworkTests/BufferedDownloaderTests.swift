@@ -136,28 +136,90 @@ final class BufferedDownloaderTests: BinTestCase, @unchecked Sendable {
 
     // MARK: - Cancellation
 
+}
+
+// MARK: - Cancellation
+
+/// Answers requests to `host` with part of a body and never finishes, so a download can only end by cancellation.
+final class StallingStubProtocol: URLProtocol {
+    static let host = "buffered-downloader.stall.test"
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        request.url?.host == host
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url,
+              let response = HTTPURLResponse(
+                  url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Length": "1000000"]
+              )
+        else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(repeating: 0xCD, count: 1000))
+    }
+
+    override func stopLoading() {}
+}
+
+@Suite(.serialized, .tags(.file))
+final class BufferedDownloaderCancellationTests: BinTestCase, @unchecked Sendable {
+    override init() async {
+        await super.init()
+        URLProtocol.registerClass(StallingStubProtocol.self)
+    }
+
+    deinit {
+        URLProtocol.unregisterClass(StallingStubProtocol.self)
+    }
+
     @Test func cancellationCleansUpPartialFile() async throws {
-        // Large enough that it won't complete before cancellation is checked
-        let largeData = Data(repeating: 0xCD, count: 1_000_000) // 1 MB
-        let sourceURL = bin.appendingPathComponent("source_cancel.bin")
+        let sourceURL = try #require(URL(string: "https://\(StallingStubProtocol.host)/stall.bin"))
         let destURL = bin.appendingPathComponent("dest_cancel.bin")
-        try largeData.write(to: sourceURL)
+        let (started, continuation) = AsyncStream<Void>.makeStream()
+
+        let downloader = BufferedDownloader()
+        let task = Task<URL, Error> {
+            try await downloader.download(from: sourceURL, to: destURL) { event in
+                if case .start = event { continuation.yield() }
+            }
+        }
+
+        // `.start` follows the download's registration and the opening of its output file.
+        for await _ in started { break }
+        #expect(destURL.exists)
+
+        await downloader.cancel()
+
+        await #expect(throws: (any Error).self) {
+            _ = try await task.value
+        }
+        #expect(!destURL.exists, "Partial file should be cleaned up on cancellation")
+    }
+
+    /// Cancelling the caller's task reaches the download, even before the download has started.
+    @Test func cancellingTheCallingTaskStopsTheDownload() async throws {
+        let sourceURL = try #require(URL(string: "https://\(StallingStubProtocol.host)/stall.bin"))
+        let destURL = bin.appendingPathComponent("dest_cancel_caller.bin")
 
         let downloader = BufferedDownloader()
         let task = Task<URL, Error> {
             try await downloader.download(from: sourceURL, to: destURL)
         }
+        task.cancel()
 
-        // Yield to let download() start and register its inner currentTask
-        await Task.yield()
-        await downloader.cancel()
-
-        do {
+        // The stalled request otherwise ends at its timeout, which is an error too.
+        let error = await #expect(throws: (any Error).self) {
             _ = try await task.value
-            Issue.record("Expected download to throw after cancellation")
-        } catch {
-            #expect(!destURL.exists, "Partial file should be cleaned up on cancellation")
         }
+        let isCancellation = error is CancellationError || (error as? URLError)?.code == .cancelled
+        #expect(isCancellation, "ended with \(String(describing: error))")
+        #expect(!destURL.exists)
     }
 }
 

@@ -38,7 +38,8 @@ public actor BufferedDownloader {
 
     public init() {}
 
-    /// Cancels the current in-flight download, if any.
+    /// Cancels the current in-flight download, if any. A download not yet started is cancelled
+    /// through the task that called ``download(name:from:to:onEvent:)``.
     public func cancel() {
         currentTask?.cancel()
         currentTask = nil
@@ -79,7 +80,11 @@ public actor BufferedDownloader {
         defer { currentTask = nil }
 
         do {
-            return try await task.value
+            return try await withTaskCancellationHandler {
+                try await task.value
+            } onCancel: {
+                task.cancel()
+            }
         } catch {
             try? fileURL.delete()
             throw error
