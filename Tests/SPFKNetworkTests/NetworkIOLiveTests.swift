@@ -66,7 +66,7 @@ final class NetworkIOLiveTests: BinTestCase, @unchecked Sendable {
             }
         }
 
-        // File is 23 bytes — below the flush threshold, so no mid-stream progress events
+        // File is 23 bytes - below the flush threshold, so no mid-stream progress events
         #expect(log.events == ["start", "complete"])
         #expect(log.fractions.first == 0.0)
         #expect(log.fractions.last == 1.0)

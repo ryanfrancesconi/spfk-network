@@ -10,7 +10,7 @@ import Testing
 
 /// Collects progress events from a download for assertion.
 /// @unchecked Sendable is safe here because events are delivered serially
-/// from within a single Task — there is no concurrent mutation in practice.
+/// from within a single Task - there is no concurrent mutation in practice.
 final class DownloadEventLog: @unchecked Sendable {
     var events: [String] = []
     var fractions: [Double] = []
@@ -39,7 +39,7 @@ final class BufferedDownloaderTests: BinTestCase, @unchecked Sendable {
     }
 
     @Test func progressEventsSmallFile() async throws {
-        let content = Data(repeating: 0xFF, count: 1_024) // 1 KB — below flush threshold
+        let content = Data(repeating: 0xFF, count: 1_024) // 1 KB - below flush threshold
         let sourceURL = bin.appendingPathComponent("source_events_small.bin")
         let destURL = bin.appendingPathComponent("dest_events_small.bin")
         try content.write(to: sourceURL)
@@ -54,7 +54,7 @@ final class BufferedDownloaderTests: BinTestCase, @unchecked Sendable {
             }
         }
 
-        // Small file: only start and complete — buffer never fills so no mid-stream flush
+        // Small file: only start and complete - buffer never fills so no mid-stream flush
         #expect(log.events == ["start", "complete"])
     }
 
